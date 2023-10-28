@@ -16,7 +16,6 @@ func main() {
 		fmt.Errorf("api token not specified")
 		os.Exit(1)
 	}
-	fmt.Println(configuration.apiToken)
 
 	requestUrl := "https://readwise.io/api/v2/export/"
 	request, err := http.NewRequest(http.MethodGet, requestUrl, nil)
