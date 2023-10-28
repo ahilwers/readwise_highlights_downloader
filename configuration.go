@@ -17,7 +17,7 @@ func GetConfiguration() (Configuration, error) {
 	var (
 		apiToken      = fs.String("api-token", "", "")
 		lastFetchDate = fs.String("last_fetch_date", "", "")
-		_             = fs.String("config", "", "config file (optional)")
+		_             = fs.String("config", "./readwise_highlights_downloader.conf", "config file (optional)")
 	)
 
 	ff.Parse(fs, os.Args[1:],
