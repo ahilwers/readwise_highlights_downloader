@@ -24,14 +24,19 @@ func NewHighlightsReader(apiToken string) HighlightsReader {
 
 func (hr *highlightsReader) ReadHighlights(updatedAfter *time.Time) ([]Highlights, error) {
 	var allHighlights []Highlights
+	if updatedAfter != nil {
+		fmt.Printf("Reading all new highlights since %v\n", updatedAfter.Format(time.RFC3339))
+	} else {
+		fmt.Println("Reading all highlights")
+	}
 
-	allHighlights, nextPage, err := hr.appendHighlightsForPage(allHighlights, 0)
+	allHighlights, nextPage, err := hr.appendHighlightsForPage(allHighlights, 0, updatedAfter)
 	if err != nil {
 		return nil, err
 	}
 
 	for nextPage > 0 {
-		allHighlights, nextPage, err = hr.appendHighlightsForPage(allHighlights, nextPage)
+		allHighlights, nextPage, err = hr.appendHighlightsForPage(allHighlights, nextPage, updatedAfter)
 		if err != nil {
 			return nil, err
 		}
@@ -39,8 +44,8 @@ func (hr *highlightsReader) ReadHighlights(updatedAfter *time.Time) ([]Highlight
 	return allHighlights, nil
 }
 
-func (hr *highlightsReader) appendHighlightsForPage(highlights []Highlights, pageNumber int) ([]Highlights, int, error) {
-	highlightsForPage, err := hr.readHighlightsForPage(pageNumber)
+func (hr *highlightsReader) appendHighlightsForPage(highlights []Highlights, pageNumber int, updatedAfter *time.Time) ([]Highlights, int, error) {
+	highlightsForPage, err := hr.readHighlightsForPage(pageNumber, updatedAfter)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error reading highlights: %v", err.Error())
 	}
@@ -49,12 +54,9 @@ func (hr *highlightsReader) appendHighlightsForPage(highlights []Highlights, pag
 	return allHighlights, nextPage, nil
 }
 
-func (hr *highlightsReader) readHighlightsForPage(pageNumber int) (*Highlights, error) {
+func (hr *highlightsReader) readHighlightsForPage(pageNumber int, updatedAfter *time.Time) (*Highlights, error) {
 	fmt.Printf("Requesting highlights for page %v...\n", pageNumber)
-	requestUrl := "https://readwise.io/api/v2/export/"
-	if pageNumber != 0 {
-		requestUrl = fmt.Sprintf("%v?pageCursor=%v", requestUrl, pageNumber)
-	}
+	requestUrl := hr.buildRequestUrl(pageNumber, updatedAfter)
 	fmt.Println(requestUrl)
 	request, err := http.NewRequest(http.MethodGet, requestUrl, nil)
 	if err != nil {
@@ -81,4 +83,23 @@ func (hr *highlightsReader) readHighlightsForPage(pageNumber int) (*Highlights, 
 		return nil, fmt.Errorf("Error unmarshalling results: %v\n", err.Error())
 	}
 	return &highlights, nil
+}
+
+func (hr *highlightsReader) buildRequestUrl(pageNumber int, updatedAfter *time.Time) string {
+	var parameters []string
+	if pageNumber > 0 {
+		parameters = append(parameters, fmt.Sprintf("pageCursor=%v", pageNumber))
+	}
+	if updatedAfter != nil {
+		parameters = append(parameters, fmt.Sprintf("updatedAfter=%v", updatedAfter.Format(time.RFC3339)))
+	}
+	requestUrl := "https://readwise.io/api/v2/export/"
+	for i, parameter := range parameters {
+		paramChar := "?"
+		if i > 0 {
+			paramChar = "&"
+		}
+		requestUrl = requestUrl + paramChar + parameter
+	}
+	return requestUrl
 }
