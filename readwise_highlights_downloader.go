@@ -1,10 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -29,33 +26,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	requestUrl := "https://readwise.io/api/v2/export/"
-	request, err := http.NewRequest(http.MethodGet, requestUrl, nil)
+	highlightsReader := NewHighlightsReader(configuration.apiToken)
+	allHighlights, err := highlightsReader.ReadHighlights(nil)
 	if err != nil {
-		fmt.Printf("Error creating request: %v\n", err.Error())
-		os.Exit(1)
-	}
-	request.Header.Add("Authorization", fmt.Sprintf("Token %v", configuration.apiToken))
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		fmt.Printf("Error fetching highlights: %v\n", err.Error())
+		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Printf("Error resding reponse body: %v", err.Error())
-		os.Exit(1)
+	for _, highlights := range allHighlights {
+		err := createHighlightFiles(highlights, configuration.outputDir)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	}
-
-	var highlights Highlights
-	json.Unmarshal(responseBody, &highlights)
-	if err != nil {
-		fmt.Printf("Error unmarshalling results: %v\n", err.Error())
-		os.Exit(1)
-	}
-
-	createHighlightFiles(highlights, configuration.outputDir)
 }
 
 func checkOutputDir(outputDir string) error {
@@ -69,10 +53,14 @@ func checkOutputDir(outputDir string) error {
 	return nil
 }
 
-func createHighlightFiles(highlights Highlights, outputDir string) {
+func createHighlightFiles(highlights Highlights, outputDir string) error {
 	fmt.Printf("Generating highlight files in %v...\n", outputDir)
 	for _, book := range highlights.Results {
 		highlightsCreator := NewBookHighlightsCreator(book, outputDir)
-		highlightsCreator.CreateBookHighlightsFile()
+		err := highlightsCreator.CreateBookHighlightsFile()
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
